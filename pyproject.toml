@@ -20,11 +20,11 @@ tree-sitter = [
 ]
 
 [project.scripts]
-cmc = "metrics.__main__:main"
+cmc = "cmc.__main__:main"
 
 [tool.setuptools.package-dir]
-metrics = "."
+cmc = "."
 
 [tool.setuptools.packages.find]
 where = [".."]
-include = ["metrics*"]
+include = ["cmc*"]

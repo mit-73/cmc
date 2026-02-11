@@ -23,7 +23,7 @@ pip install '.[tree-sitter]'
 ```
 
 After installation, the `cmc` command is available globally within the virtualenv.
-You can also run it as `python -m metrics`.
+You can also run it as `python -m cmc`.
 
 ## Supported Metrics
 
@@ -142,7 +142,7 @@ cmc --pkg-analysis --git-since 2024-06-01
 cmc --no-graphs --no-pkg
 
 # Alternative: run as a Python module
-python -m metrics /path/to/your/dart-project
+python -m cmc /path/to/your/dart-project
 ```
 
 ## CLI Flags
