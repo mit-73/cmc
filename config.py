@@ -324,8 +324,11 @@ def _apply_dict(obj, data: dict):
 def load_config(config_path: Optional[str] = None, repo_root: Optional[str] = None) -> MetricsConfig:
     """Load metrics configuration from YAML file.
 
-    If *config_path* is None, looks for ``analysis/metrics.yaml`` relative
-    to *repo_root* (which defaults to cwd).
+    Search order when *config_path* is None:
+      1. ``metrics.yaml`` in *repo_root*
+      2. ``analysis/metrics.yaml`` in *repo_root*
+
+    *repo_root* defaults to cwd.
     """
     if repo_root is None:
         repo_root = os.getcwd()
@@ -333,9 +336,17 @@ def load_config(config_path: Optional[str] = None, repo_root: Optional[str] = No
     config = MetricsConfig()
 
     if config_path is None:
-        config_path = os.path.join(repo_root, "analysis", "metrics.yaml")
+        # Try root-level first, then analysis/ subdirectory
+        candidates = [
+            os.path.join(repo_root, "metrics.yaml"),
+            os.path.join(repo_root, "analysis", "metrics.yaml"),
+        ]
+        for candidate in candidates:
+            if os.path.isfile(candidate):
+                config_path = candidate
+                break
 
-    if os.path.isfile(config_path):
+    if config_path and os.path.isfile(config_path):
         with open(config_path, "r", encoding="utf-8") as fh:
             data = yaml.safe_load(fh) or {}
         # Apply top-level scalars
@@ -358,7 +369,10 @@ def load_config(config_path: Optional[str] = None, repo_root: Optional[str] = No
 
     # Resolve root to absolute
     if not os.path.isabs(config.root):
-        config_dir = os.path.dirname(os.path.abspath(config_path))
-        config.root = os.path.normpath(os.path.join(config_dir, config.root))
+        if config_path:
+            config_dir = os.path.dirname(os.path.abspath(config_path))
+            config.root = os.path.normpath(os.path.join(config_dir, config.root))
+        else:
+            config.root = os.path.abspath(os.path.join(repo_root, config.root))
 
     return config

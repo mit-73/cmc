@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cmc"
+version = "1.0.0"
+description = "Code quality metrics collector for Dart monorepos"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+tree-sitter = [
+    "tree-sitter>=0.23.0",
+    "tree-sitter-dart>=0.1.0",
+]
+
+[project.scripts]
+cmc = "metrics.__main__:main"
+
+[tool.setuptools.package-dir]
+metrics = "."
+
+[tool.setuptools.packages.find]
+where = [".."]
+include = ["metrics*"]

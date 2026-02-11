@@ -6,6 +6,25 @@ A tool for collecting code quality metrics.
 
 - **Dart** (full support, monorepo-aware)
 
+## Installation
+
+```bash
+# Clone the repository
+git clone git@github.com:mit-73/cmc.git
+cd cmc
+
+# Create venv and install
+python3 -m venv .venv
+source .venv/bin/activate
+pip install .
+
+# (Optional) Install with tree-sitter for more precise AST parsing
+pip install '.[tree-sitter]'
+```
+
+After installation, the `cmc` command is available globally within the virtualenv.
+You can also run it as `python -m metrics`.
+
 ## Supported Metrics
 
 ### Function-level
@@ -73,49 +92,65 @@ These metrics appear in `file_metrics.json` / `file_metrics.csv` and generate vi
 ## Quick Start
 
 ```bash
-# Create venv and install dependencies
+# Clone the repository
+git clone git@github.com:mit-73/cmc.git
+cd cmc
+
+# Create venv and install
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r analysis/tools/metrics/requirements.txt
+pip install .
 
-# Run (from the monorepo root)
-python3 -m analysis.tools.metrics
+# (Optional) Install with tree-sitter for more precise parsing
+pip install '.[tree-sitter]'
+
+# Run on a project (from any directory)
+cmc /path/to/your/dart-project
+
+# Or specify the project root as the current directory
+cd /path/to/your/dart-project
+cmc
 
 # Single module only
-python3 -m analysis.tools.metrics --module core
+cmc --module core
 
 # JSON output only
-python3 -m analysis.tools.metrics --format json
+cmc --format json
 
 # With DCM (if installed)
-python3 -m analysis.tools.metrics --dcm
+cmc --dcm
 
 # With dependency graphs
-python3 -m analysis.tools.metrics --graphs
+cmc --graphs
 
 # With package analysis
-python3 -m analysis.tools.metrics --pkg-analysis
+cmc --pkg-analysis
 
 # Full run: metrics + graphs + package analysis
-python3 -m analysis.tools.metrics --graphs --pkg-analysis
+cmc --graphs --pkg-analysis
 
 # Custom key packages for per-module import graphs
-python3 -m analysis.tools.metrics --graphs --key-packages core,sdk
+cmc --graphs --key-packages core,sdk
 
 # Include dev dependencies in pubspec graph
-python3 -m analysis.tools.metrics --graphs --include-dev
+cmc --graphs --include-dev
 
 # Custom git hotspot start date
-python3 -m analysis.tools.metrics --pkg-analysis --git-since 2024-06-01
+cmc --pkg-analysis --git-since 2024-06-01
 
 # Disable graphs explicitly
-python3 -m analysis.tools.metrics --no-graphs --no-pkg
+cmc --no-graphs --no-pkg
+
+# Alternative: run as a Python module
+python -m metrics /path/to/your/dart-project
 ```
 
 ## CLI Flags
 
 | Flag | Default | Description |
 |---|---|---|
+| `PROJECT_ROOT` | cwd | Positional: path to the project root to analyze |
+| `--config PATH` | *(auto)* | Path to `metrics.yaml` (searches `./metrics.yaml` then `./analysis/metrics.yaml`) |
 | `--module NAME` | *(all)* | Analyze only the specified module |
 | `--format FORMAT` | *(all)* | Output format: `json`, `csv`, `markdown` |
 | `--dcm` | off | Enable DCM adapter for more accurate function-level metrics |
@@ -127,7 +162,12 @@ python3 -m analysis.tools.metrics --no-graphs --no-pkg
 
 ## Configuration
 
-Configuration is stored in `analysis/metrics.yaml`. Supported sections:
+Configuration is loaded from a YAML file. The tool searches in this order:
+1. Path passed via `--config`
+2. `metrics.yaml` in the project root
+3. `analysis/metrics.yaml` in the project root
+
+Supported sections:
 
 - **discovery** — module discovery strategy (`workspace`, `auto`, `manual`)
 - **exclude_patterns** — glob patterns for excluding directories
@@ -460,13 +500,13 @@ DCM provides more accurate values for function-level metrics
 
 ```bash
 dart pub global activate dcm
-python3 -m analysis.tools.metrics --dcm
+cmc --dcm
 ```
 
 ## Architecture
 
 ```
-analysis/tools/metrics/
+metrics/
 ├── __main__.py                  # CLI entry point
 ├── config.py                    # Configuration loading
 ├── discovery.py                 # Module discovery
@@ -489,13 +529,11 @@ analysis/tools/metrics/
 │   ├── duplication.py           # Token-based code duplication detection
 │   └── history.py               # Snapshot-based trend tracking & delta
 ├── graphs/
-│   ├── __init__.py              # Graph subpackage init
 │   ├── models.py                # Graph data models (nodes, edges)
 │   ├── import_graph.py          # Import-level graph builder
 │   ├── pubspec_graph.py         # Pubspec-level graph builder
 │   └── dsm.py                   # Design Structure Matrix
 ├── package_analysis/
-│   ├── __init__.py              # Package analysis subpackage init
 │   ├── models.py                # Analysis data models
 │   ├── import_analysis.py       # Cross-package import detection, shotgun surgery
 │   ├── git_analysis.py          # Git hotspot analysis

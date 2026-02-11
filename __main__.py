@@ -1,11 +1,12 @@
 """CLI entry point for Code Metrics Collector.
 
 Usage:
-    python -m analysis.tools.metrics [options]
-    python analysis/tools/metrics/__main__.py [options]
+    cmc [options] [PROJECT_ROOT]
+    python -m metrics [options] [PROJECT_ROOT]
 
 Options:
-    --config PATH       Path to metrics.yaml (default: analysis/metrics.yaml)
+    PROJECT_ROOT        Path to the project root to analyze (default: cwd)
+    --config PATH       Path to metrics.yaml config file
     --module NAME       Analyze only this module
     --metrics LIST      Comma-separated metric names to compute
     --format LIST       Comma-separated output formats: json,csv,markdown
@@ -30,21 +31,17 @@ import argparse
 import os
 import sys
 
-# Allow running as `python analysis/tools/metrics/__main__.py`
-# by adding the repo root to sys.path
-_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-_TOOLS_DIR = os.path.dirname(_SCRIPT_DIR)
-_ANALYSIS_DIR = os.path.dirname(_TOOLS_DIR)
-_REPO_ROOT = os.path.dirname(_ANALYSIS_DIR)
-
-if _REPO_ROOT not in sys.path:
-    sys.path.insert(0, _REPO_ROOT)
-
 
 def main():
     parser = argparse.ArgumentParser(
-        prog="dart-metrics",
+        prog="cmc",
         description="Collect metrics for a Dart monorepo",
+    )
+    parser.add_argument(
+        "project_root",
+        nargs="?",
+        default=None,
+        help="Path to the project root to analyze (default: current directory)",
     )
     parser.add_argument(
         "--config",
@@ -145,11 +142,18 @@ def main():
 
     args = parser.parse_args()
 
-    # Determine repo root (go up from this file)
-    repo_root = _REPO_ROOT
+    # Determine project root
+    if args.project_root:
+        repo_root = os.path.abspath(args.project_root)
+    else:
+        repo_root = os.getcwd()
+
+    if not os.path.isdir(repo_root):
+        print(f"Error: project root not found: {repo_root}", file=sys.stderr)
+        return 1
 
     # Load config
-    from analysis.tools.metrics.config import load_config
+    from .config import load_config
     config = load_config(config_path=args.config, repo_root=repo_root)
 
     # Apply CLI overrides
@@ -182,12 +186,12 @@ def main():
         print("=" * 60)
         print("  Code Metrics Collector v1.0")
         print("=" * 60)
-        from analysis.tools.metrics.parsers.dart_parser import is_tree_sitter_available
+        from .parsers.dart_parser import is_tree_sitter_available
         print(f"  tree-sitter: {'✓' if is_tree_sitter_available() else '✗ (using regex fallback)'}")
         dcm_status = '✗ (disabled)'
         if config.dcm.enabled:
             try:
-                from analysis.tools.metrics.parsers.dcm_adapter import is_dcm_available
+                from .parsers.dcm_adapter import is_dcm_available
                 dcm_status = '✓' if is_dcm_available(config.dcm) else '✗ (not found)'
             except ImportError:
                 dcm_status = '✗ (module unavailable)'
@@ -199,7 +203,7 @@ def main():
         print()
 
     # Run collection
-    from analysis.tools.metrics.collector import collect_metrics, write_output
+    from .collector import collect_metrics, write_output
 
     metric_filter = None
     if args.metrics:
