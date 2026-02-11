@@ -1,0 +1,244 @@
+# Metrics collection configuration for the Dart monorepo
+# Documentation: analysis/tools/metrics/README.md
+version: "1.0"
+
+# Monorepo root (relative to this file)
+root: ".."
+
+# How to discover modules
+discovery:
+  # "workspace" — from workspace: in the root pubspec.yaml
+  # "auto" — recursive search for pubspec.yaml
+  # "manual" — explicit list in modules
+  strategy: "workspace"
+
+  # For strategy: manual — explicit list of modules
+  # modules:
+  #   - core
+  #   - sdk
+
+  # Patterns for excluding directories
+  exclude_patterns:
+    - "third_party/**"
+    - "scripts/**"
+    - "**/example/**"
+    - "**/.dart_tool/**"
+    - "**/build/**"
+
+  # Patterns for excluding files
+  exclude_files:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "**/*.mocks.dart"
+    - "**/generated_plugin_registrant.dart"
+
+  # Whether to analyze test/ directories
+  include_tests: false
+
+# Optional DCM adapter (dart_code_metrics)
+# When enabled, DCM provides more accurate values for:
+# CYCLO, HALVOL, MI, MNL, NOP, SLOC
+dcm:
+  enabled: false
+  executable: "dcm"
+  extra_args: []
+
+# Thresholds and parameters for each metric
+thresholds:
+  # ─── Function-level ─────────────────────────────────────────
+
+  cyclomatic_complexity:
+    low: 5          # 1–5: simple
+    moderate: 10    # 6–10: normal
+    high: 20        # 11–20: complex
+    very_high: 50   # >20: very complex, >50: critical
+
+  halstead_volume:
+    low: 100
+    moderate: 500
+    high: 1000
+    very_high: 2000
+
+  lines_of_code:
+    function_max: 80    # max LOC per function
+    file_max: 500       # max LOC per file
+    class_max: 300      # max LOC per class
+
+  maintainability_index:
+    # MI on a 0–100 scale (modified Microsoft formula)
+    good: 60        # >60 — good
+    moderate: 40    # 40–60 — acceptable
+    poor: 20        # 20–40 — poor
+    # <20 — critical
+
+  max_nesting_level:
+    warning: 4      # >4 — warning
+    critical: 6     # >6 — critical
+
+  number_of_parameters:
+    warning: 4      # >4 parameters — warning
+    critical: 7     # >7 — critical
+
+  source_lines_of_code:
+    function_warning: 50
+    file_warning: 400
+
+  # ─── Class-level ────────────────────────────────────────────
+
+  coupling_between_objects:    # CBO
+    warning: 10
+    critical: 20
+
+  depth_of_inheritance:        # DIT
+    warning: 4
+    critical: 6
+
+  number_of_methods:           # NOM
+    warning: 15
+    critical: 30
+
+  response_for_class:          # RFC
+    warning: 50
+    critical: 100
+
+  tight_class_cohesion:        # TCC (0.0 – 1.0)
+    warning: 0.33   # below — poor cohesion
+    good: 0.66
+
+  weight_of_class:             # WOC (0.0 – 1.0)
+    warning: 0.33
+
+  weighted_methods_per_class:  # WMC
+    warning: 20
+    critical: 50
+
+  # ─── File-level ─────────────────────────────────────────────
+
+  number_of_imports:           # NOI
+    warning: 15
+    critical: 30
+
+  number_of_external_imports:  # NOEI
+    warning: 10
+    critical: 20
+
+  # ─── Code Smells ────────────────────────────────────────────
+
+  code_smells:
+    magic_numbers_warning: 5        # magic number count per file — warning
+    hardcoded_strings_warning: 10   # hardcoded string count per file — warning
+    static_members_warning: 8       # static member count per file — warning
+    dead_code_warning: 3            # dead code estimate per file — warning
+
+  # ─── Technical Debt ─────────────────────────────────────────
+
+  technical_debt:
+    # Weight of each violation (in minutes)
+    cyclo_excess_per_point: 10     # per CC point above the 'high' threshold
+    loc_excess_per_line: 2         # per line above function_max
+    nesting_excess_per_level: 15   # per nesting level above warning
+    params_excess_per_param: 5     # per parameter above warning
+    cbo_excess_per_point: 20       # per coupling point above warning
+    dit_excess_per_level: 30       # per extra inheritance level
+    low_cohesion_penalty: 60       # penalty for TCC < warning
+    god_class_penalty: 120         # penalty for WMC > critical
+
+  # ─── Weighted Micro Function Points (WMFP) ─────────────────
+
+  wmfp:
+    # Component weights (must sum to 1.0)
+    weights:
+      flow_complexity: 0.30       # cyclomatic complexity
+      object_vocabulary: 0.20     # Halstead vocabulary (unique operators + operands)
+      object_conjuration: 0.10    # Halstead program length
+      arithmetic_intricacy: 0.05  # arithmetic operator count (+, -, *, /, %, ~/)
+      data_transfer: 0.10         # number of parameters
+      code_structure: 0.15        # nesting depth + LOC/SLOC ratio
+      inline_data: 0.05           # inline data (assignment count)
+      comments: 0.05              # comment line density
+    # Per-function WMFP thresholds
+    warning: 15.0                 # function WMFP > 15 — warning
+    critical: 30.0                # function WMFP > 30 — critical
+    # Per-file WMFP density thresholds (WMFP / SLOC)
+    density_warning: 0.5          # file density > 0.5 — warning
+    density_critical: 1.0         # file density > 1.0 — critical
+
+  # ─── First-Pass Yield (FPY) ─────────────────────────────────
+
+  fpy:
+    # Function-level quality gates (FPY = gates_passed / total_gates)
+    function_gates:
+      max_cyclo: 10               # CC ≤ 10 to pass
+      max_nesting: 4              # MNL ≤ 4 to pass
+      min_mi: 50.0                # MI ≥ 50 to pass
+      max_params: 4               # NOP ≤ 4 to pass
+      max_loc: 50                 # LOC ≤ 50 to pass
+
+    # Class-level quality gates
+    class_gates:
+      max_wmc: 20                 # WMC ≤ 20 to pass
+      max_cbo: 8                  # CBO ≤ 8 to pass
+      min_tcc: 0.33               # TCC ≥ 0.33 to pass
+      max_nom: 20                 # NOM ≤ 20 to pass
+      min_woc: 0.33               # WOC ≥ 0.33 to pass
+
+    # File-level smell gates
+    file_gates:
+      max_imports: 15             # NOI ≤ 15 to pass
+      max_magic_numbers: 3        # magic numbers ≤ 3 to pass
+      max_hardcoded_strings: 5    # hardcoded strings ≤ 5 to pass
+      max_dead_code: 0            # dead code estimate = 0 to pass
+
+    # File-level FPY aggregation weights (must sum to 1.0)
+    weight_functions: 0.5         # 50% weight from mean function FPY
+    weight_classes: 0.3           # 30% weight from mean class FPY
+    weight_smells: 0.2            # 20% weight from file smell gates
+
+# Dependency graph generation
+graphs:
+  enabled: false                    # enable graph generation (--graphs flag)
+  include_dev: false                # include dev_dependencies in pubspec graph
+  include_overrides: false          # include dependency_overrides in pubspec graph
+  include_tests: false              # include test files in import graph
+  key_packages:                     # packages for per-module import detail graphs
+    - core
+    - sdk
+
+# Cross-package analysis
+package_analysis:
+  enabled: false                   # enable package analysis (--pkg-analysis flag)
+  git_since: "2025-01-01"          # start date for git hotspot analysis
+  git_hotspots_top_n: 20           # number of top hotspot files to report
+  shotgun_surgery_top_n: 10        # number of top widely-imported files to report
+
+# Module quality rating (A/B/C/D/E)
+# Composite score from MI, CC, FPY and TD density → grade
+rating:
+  weights:
+    mi: 0.30                       # Maintainability Index contribution
+    cc: 0.25                       # Cyclomatic Complexity contribution
+    fpy: 0.25                      # First-Pass Yield contribution
+    td: 0.20                       # Technical Debt density contribution
+  normalization:
+    cc_max: 30.0                   # CC at or above this maps to score 0
+    td_max: 100.0                  # TD (min/kLOC) at or above this maps to score 0
+  # Grade thresholds (score 0–100)
+  # A ≥ 80, B ≥ 60, C ≥ 40, D ≥ 20, E < 20
+
+# Code duplication detection (token-based rolling hash)
+duplication:
+  min_tokens: 50                   # minimum token window for a duplicate block
+  min_lines: 6                     # minimum source lines for a duplicate block
+  max_pairs: 500                   # maximum duplicate pairs to report
+
+# History & trend tracking (snapshot-based)
+history:
+  max_snapshots: 20                # maximum historical snapshots to load for trends
+
+# Output configuration
+output:
+  directory: "analysis/metrics_output"
+  formats:
+    - json       # machine-readable data
+    - csv        # for Excel / Google Sheets
+    - markdown   # human-readable reports
