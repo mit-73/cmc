@@ -5,18 +5,22 @@
   wheel,
   pyyaml,
 }:
-
+let
+  buildsystem = "pyproject";
+  pyproject = builtins.fromTOML (builtins.readFile ./${buildsystem}.toml);
+  project = pyproject.project;
+  name = project.name;
+in
 buildPythonApplication {
-  pname = "cmc";
-  version = "1.0.0";
-
+  inherit (project) version;
+  pname = name;
   src = ./.;
-  pyproject = true;
+  ${buildsystem} = true;
 
   postUnpack = ''
-    mkdir -p cmc-wrapper
-    mv $sourceRoot cmc-wrapper/cmc
-    sourceRoot=cmc-wrapper/cmc
+    mkdir -p ${name}-wrapper
+    mv $sourceRoot ${name}-wrapper/${name}
+    sourceRoot=${name}-wrapper/${name}
   '';
 
   build-system = [
@@ -33,7 +37,7 @@ buildPythonApplication {
   meta = {
     description = "Code quality metrics collector for Dart monorepos";
     license = lib.licenses.mit;
-    mainProgram = "cmc";
-    homepage = "https://github.com/mit-73/cmc";
+    mainProgram = name;
+    homepage = "https://github.com/mit-73/${name}";
   };
 }
