@@ -25,6 +25,82 @@ pip install '.[tree-sitter]'
 After installation, the `cmc` command is available globally within the virtualenv.
 You can also run it as `python -m cmc`.
 
+## Nix
+
+The project includes a Nix flake for reproducible builds and easy usage without
+manual dependency management. Two package variants are available:
+
+| Package | Description |
+|---|---|
+| `minimal` | Base build with regex parser only (no extra dependencies) |
+| `dart` | Full build with `tree-sitter` and `tree-sitter-dart` for precise AST parsing |
+
+### Run without installing
+
+Use `nix run` to execute `cmc` directly from the flake without installing
+anything permanently:
+
+```bash
+# Run the full (tree-sitter) variant on a project
+nix run github:mit-73/cmc#dart -- /path/to/your/dart-project
+
+# Run the minimal variant
+nix run github:mit-73/cmc#minimal -- /path/to/your/dart-project
+
+# Pass any CLI flags as usual
+nix run github:mit-73/cmc#dart -- /path/to/project --graphs --pkg-analysis
+nix run github:mit-73/cmc#dart -- --format json --module core
+nix run github:mit-73/cmc#dart -- --dcm --graphs --key-packages core,sdk
+```
+
+If you have the repository cloned locally:
+
+```bash
+cd cmc
+nix run .#dart -- /path/to/your/dart-project
+nix run .#minimal -- /path/to/your/dart-project
+```
+
+### Build
+
+Build the package without installing it:
+
+```bash
+nix build github:mit-73/cmc#dart
+./result/bin/cmc /path/to/your/dart-project
+
+# Or from a local checkout
+nix build .#dart
+./result/bin/cmc --help
+```
+
+### Development shell
+
+Enter a development shell with all dependencies available:
+
+```bash
+nix develop
+
+# Or from a remote flake
+nix develop github:mit-73/cmc
+```
+
+### Use as a flake input
+
+Add `cmc` as an input in another flake:
+
+```nix
+{
+  inputs = {
+    cmc.url = "github:mit-73/cmc";
+  };
+
+  outputs = { cmc, ... }: {
+    # Use cmc.packages.${system}.dart or cmc.packages.${system}.minimal
+  };
+}
+```
+
 ## Supported Metrics
 
 ### Function-level
