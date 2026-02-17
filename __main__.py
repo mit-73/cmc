@@ -1,8 +1,8 @@
 """CLI entry point for Code Metrics Collector.
 
 Usage:
-    cmc [options] [PROJECT_ROOT]
-    python -m metrics [options] [PROJECT_ROOT]
+    cmc [options] [PROJECT_ROOT]      Analyze project
+    cmc view [PROJECT_ROOT] [--port]  View dashboard
 
 Options:
     PROJECT_ROOT        Path to the project root to analyze (default: cwd)
@@ -23,6 +23,10 @@ Options:
     --verbose / -v      Verbose output (default: on)
     --quiet / -q        Suppress output
     --help / -h         Show this help
+
+View subcommand:
+    cmc view [PROJECT_ROOT] [--port PORT]
+    Starts a local HTTP server for the metrics dashboard.
 """
 
 from __future__ import annotations
@@ -32,7 +36,102 @@ import os
 import sys
 
 
+def _run_view(args):
+    """Start a local HTTP server for the dashboard."""
+    import http.server
+    import functools
+
+    project_root = os.path.abspath(args.project_root) if args.project_root else os.getcwd()
+    port = args.port
+
+    # Determine output dir
+    from .config import load_config
+    config = load_config(config_path=None, repo_root=project_root)
+    output_dir = config.output.directory
+    if not os.path.isabs(output_dir):
+        output_dir = os.path.join(project_root, output_dir)
+
+    index_path = os.path.join(output_dir, "index.json")
+    if not os.path.isfile(index_path):
+        print(f"Error: No metrics data found in {output_dir}", file=sys.stderr)
+        print("  Run 'cmc' first to generate metrics.", file=sys.stderr)
+        return 1
+
+    # Dashboard is served from cmc/server/index.html
+    cmc_root = os.path.dirname(os.path.abspath(__file__))
+    index_path = os.path.join(cmc_root, "server", "index.html")
+    if not os.path.isfile(index_path):
+        print(f"Error: index.html not found at {index_path}", file=sys.stderr)
+        print("  CMC installation may be corrupted.", file=sys.stderr)
+        return 1
+
+    print(f"Serving metrics from: {output_dir}")
+    print(f"Open: http://localhost:{port}/index.html")
+    print("Press Ctrl+C to stop.\n")
+
+    # Custom handler: index.html from cmc/server/, data from output_dir
+    class MetricsHandler(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, directory=output_dir, **kwargs)
+
+        def _serve_static(self, rel_path, content_type):
+            """Serve a file from cmc/server/ directory."""
+            file_path = os.path.join(cmc_root, "server", rel_path)
+            if not os.path.isfile(file_path):
+                self.send_error(404, f"File not found: {rel_path}")
+                return
+            try:
+                with open(file_path, "rb") as f:
+                    content = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", content_type)
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+            except Exception as e:
+                self.send_error(500, f"Error reading {rel_path}: {e}")
+
+        def do_GET(self):
+            if self.path == "/index.html" or self.path == "/":
+                self._serve_static("index.html", "text/html; charset=utf-8")
+            elif self.path == "/styles.css":
+                self._serve_static("styles.css", "text/css; charset=utf-8")
+            elif self.path.startswith("/js/") and self.path.endswith(".js"):
+                self._serve_static(self.path.lstrip("/"), "application/javascript; charset=utf-8")
+            else:
+                # Serve data files from output_dir
+                super().do_GET()
+
+    server = http.server.HTTPServer(("localhost", port), MetricsHandler)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nStopped.")
+    return 0
+
+
 def main():
+    # Check for 'view' subcommand first
+    if len(sys.argv) >= 2 and sys.argv[1] == "view":
+        view_parser = argparse.ArgumentParser(
+            prog="cmc view",
+            description="View the metrics dashboard via local HTTP server",
+        )
+        view_parser.add_argument(
+            "project_root",
+            nargs="?",
+            default=None,
+            help="Path to the project root (default: current directory)",
+        )
+        view_parser.add_argument(
+            "--port", "-p",
+            type=int,
+            default=4000,
+            help="Port to serve on (default: 4000)",
+        )
+        args = view_parser.parse_args(sys.argv[2:])
+        return _run_view(args)
+
     parser = argparse.ArgumentParser(
         prog="cmc",
         description="Collect metrics for a Dart monorepo",

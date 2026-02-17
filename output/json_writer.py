@@ -144,6 +144,7 @@ def write_technical_debt_report(
     os.makedirs(os.path.dirname(path), exist_ok=True)
 
     # Module-level TD
+    total_loc = sum(ms.loc_total for ms in module_summaries)
     module_td = []
     for ms in module_summaries:
         module_td.append({
@@ -151,6 +152,8 @@ def write_technical_debt_report(
             "total_minutes": ms.technical_debt.total_minutes,
             "total_hours": ms.technical_debt.total_hours,
             "total_days": ms.technical_debt.total_days,
+            "td_per_loc": ms.technical_debt.td_per_loc,
+            "loc": ms.loc_total,
         })
     module_td.sort(key=lambda x: x["total_minutes"], reverse=True)
 
@@ -164,12 +167,15 @@ def write_technical_debt_report(
     top_classes = sorted(class_metrics, key=lambda c: c.technical_debt_minutes, reverse=True)[:50]
 
     total_minutes = sum(ms.technical_debt.total_minutes for ms in module_summaries)
+    total_td_per_loc = (total_minutes / total_loc * 1000) if total_loc > 0 else 0.0
 
     data = {
         "generated_at": _now_iso(),
         "total_minutes": round(total_minutes, 2),
         "total_hours": round(total_minutes / 60, 2),
         "total_days": round(total_minutes / 480, 2),
+        "total_td_per_loc": round(total_td_per_loc, 2),
+        "total_loc": total_loc,
         "by_module": module_td,
         "top_files": [f.to_dict() for f in top_files],
         "top_functions": [f.to_dict() for f in top_functions],
@@ -312,4 +318,43 @@ def write_delta_json(snapshot_delta, output_dir: str) -> str:
         **snapshot_delta.to_dict(),
     }
     _write_json(path, data)
+    return path
+
+
+def write_snapshot_index(output_dir: str) -> str:
+    """Write ``index.json`` at root *output_dir* listing all full snapshots.
+
+    Each snapshot is a sub-directory of ``history/`` that contains at least
+    ``metadata.json``.  The index is enriched with key fields sourced from
+    the actual data files so the dashboard can display a human-friendly
+    picker without loading every file.
+    """
+    from ..metrics.history import list_snapshot_ids
+
+    history_dir = os.path.join(output_dir, "history")
+    os.makedirs(history_dir, exist_ok=True)
+    path = os.path.join(output_dir, "index.json")
+
+    ids = list_snapshot_ids(output_dir)
+    entries = []
+    for sid in ids:
+        snap_dir = os.path.join(history_dir, sid)
+        entry: dict = {"id": sid}
+        try:
+            # metadata.json — timestamp, git info
+            meta_path = os.path.join(snap_dir, "metadata.json")
+            if os.path.isfile(meta_path):
+                with open(meta_path, "r", encoding="utf-8") as fh:
+                    meta = json.load(fh)
+                entry["timestamp"] = meta.get("generated_at", sid)
+        except Exception:
+            entry.setdefault("timestamp", sid)
+
+        entries.append(entry)
+
+    _write_json(path, {
+        "generated_at": _now_iso(),
+        "count": len(entries),
+        "snapshots": entries,
+    })
     return path

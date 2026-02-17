@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import sys
 import time
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Set
 
 from .config import MetricsConfig
@@ -51,7 +52,6 @@ from .metrics.history import (
 from .aggregation.module_aggregator import aggregate_module
 from .aggregation.project_aggregator import aggregate_project
 from .output import json_writer, csv_writer, markdown_writer, dot_writer
-from .output.html_writer import write_html_dashboard
 from .graphs.import_graph import build_import_graph, build_per_module_import_details
 from .graphs.pubspec_graph import build_pubspec_graph
 from .graphs.dsm import build_dsm, DSMResult
@@ -485,11 +485,21 @@ def write_output(
     config: MetricsConfig,
     verbose: bool = True,
 ) -> List[str]:
-    """Write all output files based on config."""
+    """Write all output files based on config.
+
+    Data files go into ``<output_dir>/history/<timestamp>/`` so that every
+    run produces a self-contained full snapshot.  The HTML dashboard and
+    the snapshot index (``index.json``) stay at the root ``output_dir``.
+    """
 
     output_dir = config.output.directory
     if not os.path.isabs(output_dir):
         output_dir = os.path.join(config.root, output_dir)
+
+    # ── Snapshot directory ──
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    snapshot_dir = os.path.join(output_dir, "history", ts)
+    os.makedirs(snapshot_dir, exist_ok=True)
 
     formats = config.output.formats
     parser_type = "tree-sitter" if is_tree_sitter_available() else "regex-fallback"
@@ -497,28 +507,28 @@ def write_output(
     written_files: List[str] = []
 
     if verbose:
-        print(f"\n[metrics] Writing results to {output_dir}...")
+        print(f"\n[metrics] Writing results to {snapshot_dir}...")
 
     # JSON output
     if "json" in formats:
         written_files.append(
-            json_writer.write_raw_file_metrics(result.all_file_metrics, output_dir)
+            json_writer.write_raw_file_metrics(result.all_file_metrics, snapshot_dir)
         )
         written_files.append(
-            json_writer.write_raw_function_metrics(result.all_function_metrics, output_dir)
+            json_writer.write_raw_function_metrics(result.all_function_metrics, snapshot_dir)
         )
         written_files.append(
-            json_writer.write_raw_class_metrics(result.all_class_metrics, output_dir)
+            json_writer.write_raw_class_metrics(result.all_class_metrics, snapshot_dir)
         )
 
         for ms in result.module_summaries:
             written_files.append(
-                json_writer.write_module_summary(ms, output_dir)
+                json_writer.write_module_summary(ms, snapshot_dir)
             )
 
         if result.project_summary:
             written_files.append(
-                json_writer.write_project_summary(result.project_summary, output_dir)
+                json_writer.write_project_summary(result.project_summary, snapshot_dir)
             )
 
         written_files.append(
@@ -526,7 +536,7 @@ def write_output(
                 result.all_function_metrics,
                 result.all_class_metrics,
                 result.all_file_metrics,
-                output_dir,
+                snapshot_dir,
             )
         )
 
@@ -536,13 +546,13 @@ def write_output(
                 result.all_class_metrics,
                 result.all_file_metrics,
                 result.module_summaries,
-                output_dir,
+                snapshot_dir,
             )
         )
 
         written_files.append(
             json_writer.write_metadata(
-                output_dir,
+                snapshot_dir,
                 config.version,
                 result.modules_analyzed,
                 parser_type,
@@ -553,13 +563,13 @@ def write_output(
     # CSV output
     if "csv" in formats:
         written_files.append(
-            csv_writer.write_raw_file_metrics_csv(result.all_file_metrics, output_dir)
+            csv_writer.write_raw_file_metrics_csv(result.all_file_metrics, snapshot_dir)
         )
         written_files.append(
-            csv_writer.write_raw_function_metrics_csv(result.all_function_metrics, output_dir)
+            csv_writer.write_raw_function_metrics_csv(result.all_function_metrics, snapshot_dir)
         )
         written_files.append(
-            csv_writer.write_raw_class_metrics_csv(result.all_class_metrics, output_dir)
+            csv_writer.write_raw_class_metrics_csv(result.all_class_metrics, snapshot_dir)
         )
 
     # Markdown output
@@ -570,7 +580,7 @@ def write_output(
                     ms,
                     result.all_function_metrics,
                     result.all_class_metrics,
-                    output_dir,
+                    snapshot_dir,
                 )
             )
 
@@ -579,7 +589,7 @@ def write_output(
                 markdown_writer.write_project_summary_md(
                     result.project_summary,
                     result.module_summaries,
-                    output_dir,
+                    snapshot_dir,
                 )
             )
 
@@ -588,7 +598,7 @@ def write_output(
                 result.all_function_metrics,
                 result.all_class_metrics,
                 result.all_file_metrics,
-                output_dir,
+                snapshot_dir,
             )
         )
 
@@ -596,20 +606,20 @@ def write_output(
             markdown_writer.write_technical_debt_md(
                 result.module_summaries,
                 result.all_file_metrics,
-                output_dir,
+                snapshot_dir,
             )
         )
 
     # Dependency graph output (DOT, JSON, CSV)
     if result.import_graph:
         written_files.append(
-            dot_writer.write_import_graph_dot(result.import_graph, output_dir)
+            dot_writer.write_import_graph_dot(result.import_graph, snapshot_dir)
         )
         written_files.append(
-            json_writer.write_graph_json(result.import_graph, output_dir, "import")
+            json_writer.write_graph_json(result.import_graph, snapshot_dir, "import")
         )
         written_files.append(
-            csv_writer.write_graph_edges_csv(result.import_graph, output_dir, "import")
+            csv_writer.write_graph_edges_csv(result.import_graph, snapshot_dir, "import")
         )
         # Per-module import graphs for key packages
         key_pkgs = set(config.graphs.key_packages) if config.graphs.key_packages else set()
@@ -624,24 +634,24 @@ def write_output(
                     if details:
                         written_files.append(
                             dot_writer.write_module_import_graph_dot(
-                                module.name, details, output_dir
+                                module.name, details, snapshot_dir
                             )
                         )
 
     if result.pubspec_graph:
         written_files.append(
-            dot_writer.write_pubspec_graph_dot(result.pubspec_graph, output_dir)
+            dot_writer.write_pubspec_graph_dot(result.pubspec_graph, snapshot_dir)
         )
         written_files.append(
-            json_writer.write_graph_json(result.pubspec_graph, output_dir, "pubspec")
+            json_writer.write_graph_json(result.pubspec_graph, snapshot_dir, "pubspec")
         )
         written_files.append(
-            csv_writer.write_graph_edges_csv(result.pubspec_graph, output_dir, "pubspec")
+            csv_writer.write_graph_edges_csv(result.pubspec_graph, snapshot_dir, "pubspec")
         )
         if "markdown" in formats:
             written_files.append(
                 markdown_writer.write_graph_summary_md(
-                    result.import_graph, result.pubspec_graph, output_dir
+                    result.import_graph, result.pubspec_graph, snapshot_dir
                 )
             )
 
@@ -649,12 +659,12 @@ def write_output(
     if result.package_analyses:
         for pa in result.package_analyses:
             written_files.append(
-                json_writer.write_package_analysis_json(pa, output_dir)
+                json_writer.write_package_analysis_json(pa, snapshot_dir)
             )
         if "markdown" in formats:
             written_files.append(
                 markdown_writer.write_package_analysis_md(
-                    result.package_analyses, output_dir
+                    result.package_analyses, snapshot_dir
                 )
             )
 
@@ -663,99 +673,82 @@ def write_output(
     # Ratings JSON
     if "json" in formats and result.module_ratings:
         written_files.append(
-            json_writer.write_ratings_json(result.module_ratings, output_dir)
+            json_writer.write_ratings_json(result.module_ratings, snapshot_dir)
         )
 
     # Distributions JSON
     if "json" in formats and result.distributions:
         written_files.append(
-            json_writer.write_distributions_json(result.distributions, output_dir)
+            json_writer.write_distributions_json(result.distributions, snapshot_dir)
         )
 
     # Risk hotspots
     if result.risk_hotspots:
         if "json" in formats:
             written_files.append(
-                json_writer.write_risk_hotspots_json(result.risk_hotspots, output_dir)
+                json_writer.write_risk_hotspots_json(result.risk_hotspots, snapshot_dir)
             )
         if "markdown" in formats:
             written_files.append(
-                markdown_writer.write_risk_hotspots_md(result.risk_hotspots, output_dir)
+                markdown_writer.write_risk_hotspots_md(result.risk_hotspots, snapshot_dir)
             )
 
     # DSM
     if result.dsm_result:
         if "json" in formats:
             written_files.append(
-                json_writer.write_dsm_json(result.dsm_result, output_dir)
+                json_writer.write_dsm_json(result.dsm_result, snapshot_dir)
             )
         if "markdown" in formats:
             written_files.append(
-                markdown_writer.write_dsm_md(result.dsm_result, output_dir)
+                markdown_writer.write_dsm_md(result.dsm_result, snapshot_dir)
             )
 
     # Duplication
     if result.duplication_result:
         if "json" in formats:
             written_files.append(
-                json_writer.write_duplication_json(result.duplication_result, output_dir)
+                json_writer.write_duplication_json(result.duplication_result, snapshot_dir)
             )
         if "markdown" in formats:
             written_files.append(
-                markdown_writer.write_duplication_md(result.duplication_result, output_dir)
+                markdown_writer.write_duplication_md(result.duplication_result, snapshot_dir)
             )
 
     # Distributions markdown
     if "markdown" in formats and result.distributions:
         written_files.append(
-            markdown_writer.write_distributions_md(result.distributions, output_dir)
+            markdown_writer.write_distributions_md(result.distributions, snapshot_dir)
         )
 
     # Ratings in project markdown (update module table with grades)
     if "markdown" in formats and result.module_ratings:
         written_files.append(
             markdown_writer.write_ratings_md(
-                result.module_summaries, result.module_ratings, output_dir
+                result.module_summaries, result.module_ratings, snapshot_dir
             )
         )
 
-    # History snapshot
-    if result.snapshot:
-        snap_path = save_snapshot(result.snapshot, output_dir)
-        written_files.append(snap_path)
-
-    # Delta report
+    # Delta report (also inside snapshot dir)
     if result.snapshot_delta:
         if "json" in formats:
             written_files.append(
-                json_writer.write_delta_json(result.snapshot_delta, output_dir)
+                json_writer.write_delta_json(result.snapshot_delta, snapshot_dir)
             )
         if "markdown" in formats:
             written_files.append(
-                markdown_writer.write_delta_md(result.snapshot_delta, output_dir)
+                markdown_writer.write_delta_md(result.snapshot_delta, snapshot_dir)
             )
 
-    # HTML Dashboard (always generate if data is available)
-    if "html" in formats or True:  # always generate dashboard
-        written_files.append(
-            write_html_dashboard(
-                project_summary=result.project_summary,
-                module_summaries=result.module_summaries,
-                function_metrics=result.all_function_metrics,
-                class_metrics=result.all_class_metrics,
-                file_metrics=result.all_file_metrics,
-                module_ratings=result.module_ratings,
-                distributions=result.distributions,
-                risk_hotspots=result.risk_hotspots,
-                dsm_result=result.dsm_result,
-                duplication_result=result.duplication_result,
-                snapshot_delta=result.snapshot_delta,
-                history_snapshots=result.history_snapshots,
-                output_dir=output_dir,
-            )
-        )
+    # ── Root-level files (dashboard + snapshot index) ──
+
+    # Snapshot index at <output_dir>/index.json
+    written_files.append(
+        json_writer.write_snapshot_index(output_dir)
+    )
 
     if verbose:
+        print(f"  Snapshot: {ts}")
         print(f"  Files written: {len(written_files)}")
         for f in written_files:
             rel = os.path.relpath(f, config.root) if os.path.isabs(f) else f

@@ -104,3 +104,8 @@ def apply_technical_debt(
         fn_debt = file_fn_debt.get(fmet.path, 0.0)
         cls_debt = file_cls_debt.get(fmet.path, 0.0)
         fmet.technical_debt_minutes = round(fn_debt + cls_debt, 2)
+        # Normalized TD: minutes per 1 000 LOC
+        fmet.td_per_loc = round(
+            fmet.technical_debt_minutes / fmet.loc * 1000 if fmet.loc > 0 else 0.0,
+            2,
+        )

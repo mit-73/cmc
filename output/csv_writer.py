@@ -17,7 +17,7 @@ _FILE_HEADERS = [
     "static_members", "hardcoded_strings", "magic_numbers",
     "dead_code_estimate",
     "wmfp", "wmfp_density", "fpy",
-    "technical_debt_minutes",
+    "technical_debt_minutes", "td_per_loc",
 ]
 
 _FUNCTION_HEADERS = [

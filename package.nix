@@ -35,7 +35,7 @@ buildPythonApplication {
   doCheck = false;
 
   meta = {
-    description = "Code quality metrics collector for Dart monorepos";
+    description = "Code quality metrics collector";
     license = lib.licenses.mit;
     mainProgram = name;
     homepage = "https://github.com/mit-73/${name}";

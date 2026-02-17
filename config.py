@@ -227,7 +227,7 @@ class Thresholds:
 
 @dataclass
 class DiscoveryConfig:
-    strategy: str = "workspace"  # workspace | auto | manual
+    strategy: str = "auto"  # workspace | auto | manual
     modules: list = field(default_factory=list)
     exclude_patterns: list = field(default_factory=lambda: [
         "**/.dart_tool/**",

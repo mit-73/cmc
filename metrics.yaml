@@ -1,16 +1,16 @@
 # Metrics collection configuration for the Dart monorepo
-# Documentation: analysis/tools/metrics/README.md
+# Documentation: README.md
 version: "1.0"
 
 # Monorepo root (relative to this file)
-root: ".."
+root: "."
 
 # How to discover modules
 discovery:
-  # "workspace" — from workspace: in the root pubspec.yaml
   # "auto" — recursive search for pubspec.yaml
+  # "workspace" — from workspace: in the root pubspec.yaml
   # "manual" — explicit list in modules
-  strategy: "workspace"
+  strategy: "auto"
 
   # For strategy: manual — explicit list of modules
   # modules:
@@ -196,7 +196,7 @@ thresholds:
 
 # Dependency graph generation
 graphs:
-  enabled: false                    # enable graph generation (--graphs flag)
+  enabled: true                    # enable graph generation (--graphs flag)
   include_dev: false                # include dev_dependencies in pubspec graph
   include_overrides: false          # include dependency_overrides in pubspec graph
   include_tests: false              # include test files in import graph
@@ -206,7 +206,7 @@ graphs:
 
 # Cross-package analysis
 package_analysis:
-  enabled: false                   # enable package analysis (--pkg-analysis flag)
+  enabled: true                   # enable package analysis (--pkg-analysis flag)
   git_since: "2025-01-01"          # start date for git hotspot analysis
   git_hotspots_top_n: 20           # number of top hotspot files to report
   shotgun_surgery_top_n: 10        # number of top widely-imported files to report
@@ -229,11 +229,7 @@ rating:
 duplication:
   min_tokens: 50                   # minimum token window for a duplicate block
   min_lines: 6                     # minimum source lines for a duplicate block
-  max_pairs: 500                   # maximum duplicate pairs to report
-
-# History & trend tracking (snapshot-based)
-history:
-  max_snapshots: 20                # maximum historical snapshots to load for trends
+  max_pairs: 500                   # maximum duplicate pairs to report     # maximum historical snapshots to load for trends
 
 # Output configuration
 output:

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "cmc"
 version = "1.0.0"
-description = "Code quality metrics collector for Dart monorepos"
+description = "Code quality metrics collector"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
@@ -21,6 +21,9 @@ tree-sitter = [
 
 [project.scripts]
 cmc = "cmc.__main__:main"
+
+[tool.setuptools.package-data]
+cmc = ["server/*.html", "server/*.css", "server/js/*.js"]
 
 [tool.setuptools.package-dir]
 cmc = "."

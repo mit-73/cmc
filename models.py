@@ -105,6 +105,7 @@ class FileMetrics:
     wmfp_density: float = 0.0
     fpy: float = 1.0
     technical_debt_minutes: float = 0.0
+    td_per_loc: float = 0.0  # TD (min) per kLOC
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -157,6 +158,7 @@ class TechnicalDebtSummary:
     total_minutes: float = 0.0
     total_hours: float = 0.0
     total_days: float = 0.0
+    td_per_loc: float = 0.0  # TD (min) per kLOC
 
     def to_dict(self) -> dict:
         d = asdict(self)

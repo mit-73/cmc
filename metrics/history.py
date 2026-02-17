@@ -219,17 +219,18 @@ def build_snapshot(
 # Save / load snapshots
 # ---------------------------------------------------------------------------
 
-def save_snapshot(snapshot: Snapshot, output_dir: str) -> str:
-    """Save snapshot to history directory.
+def save_snapshot(snapshot: Snapshot, snapshot_dir: str) -> str:
+    """Save compact snapshot inside the given snapshot directory.
+
+    Args:
+        snapshot: The snapshot to save.
+        snapshot_dir: The concrete snapshot directory
+                      (e.g. ``<output>/history/20260216_133352/``).
 
     Returns the path to the saved file.
     """
-    history_dir = os.path.join(output_dir, "history")
-    os.makedirs(history_dir, exist_ok=True)
-
-    # Filename: snapshot_YYYYMMDD_HHMMSS.json
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    path = os.path.join(history_dir, f"snapshot_{ts}.json")
+    os.makedirs(snapshot_dir, exist_ok=True)
+    path = os.path.join(snapshot_dir, "snapshot.json")
 
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(snapshot.to_dict(), fh, indent=2, ensure_ascii=False)
@@ -278,22 +279,134 @@ def load_snapshot(path: str) -> Snapshot:
 
 
 def list_snapshots(output_dir: str) -> List[str]:
-    """List all snapshot files in chronological order."""
+    """List all snapshot directories inside ``history/``.
+
+    Returns directory paths sorted chronologically (by directory name).
+    Each directory must contain ``metadata.json``.
+    """
     history_dir = os.path.join(output_dir, "history")
     if not os.path.isdir(history_dir):
         return []
-    files = sorted(glob.glob(os.path.join(history_dir, "snapshot_*.json")))
-    return files
+    dirs = sorted(
+        os.path.join(history_dir, d)
+        for d in os.listdir(history_dir)
+        if os.path.isdir(os.path.join(history_dir, d))
+        and os.path.isfile(os.path.join(history_dir, d, "metadata.json"))
+    )
+    return dirs
+
+
+def list_snapshot_ids(output_dir: str) -> List[str]:
+    """Return sorted list of snapshot directory names (e.g. '20260216_133352').
+
+    A directory is considered a valid snapshot when it contains at least
+    ``metadata.json`` (always written by the collector).
+    """
+    history_dir = os.path.join(output_dir, "history")
+    if not os.path.isdir(history_dir):
+        return []
+    ids = sorted(
+        d for d in os.listdir(history_dir)
+        if os.path.isdir(os.path.join(history_dir, d))
+        and os.path.isfile(os.path.join(history_dir, d, "metadata.json"))
+    )
+    return ids
 
 
 def get_latest_snapshot(output_dir: str) -> Optional[Snapshot]:
-    """Load the most recent snapshot (if any)."""
-    files = list_snapshots(output_dir)
-    if not files:
+    """Load the most recent snapshot (if any).
+
+    Reconstructs the Snapshot from actual data files in the latest
+    snapshot directory (metadata.json, project_summary.json,
+    technical_debt.json, duplication.json, ratings.json).
+    """
+    dirs = list_snapshots(output_dir)
+    if not dirs:
         return None
-    # The latest is the second-to-last if we just saved a new one
-    # But typically we call this before saving the new one
-    return load_snapshot(files[-1])
+    snap_dir = dirs[-1]
+
+    # Try legacy snapshot.json first (backward compat)
+    legacy_path = os.path.join(snap_dir, "snapshot.json")
+    if os.path.isfile(legacy_path):
+        return load_snapshot(legacy_path)
+
+    # Reconstruct from actual data files
+    return _reconstruct_snapshot(snap_dir)
+
+
+def _load_json(path: str) -> Optional[dict]:
+    """Load JSON file, return None on error."""
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _reconstruct_snapshot(snap_dir: str) -> Optional[Snapshot]:
+    """Reconstruct a Snapshot from individual data files in snap_dir."""
+    meta = _load_json(os.path.join(snap_dir, "metadata.json"))
+    if not meta:
+        return None
+
+    ps = _load_json(os.path.join(snap_dir, "project_summary.json")) or {}
+    td = _load_json(os.path.join(snap_dir, "technical_debt.json")) or {}
+    dup = _load_json(os.path.join(snap_dir, "duplication.json")) or {}
+    rat = _load_json(os.path.join(snap_dir, "ratings.json")) or {}
+
+    snap = Snapshot(
+        timestamp=meta.get("timestamp", ""),
+        git_commit=meta.get("git_commit", ""),
+        git_branch=meta.get("git_branch", ""),
+        project_loc=ps.get("loc_total", 0),
+        project_sloc=ps.get("sloc_total", 0),
+        project_files=ps.get("files_count", 0),
+        project_classes=ps.get("classes_count", 0),
+        project_functions=ps.get("functions_count", 0),
+        td_total_minutes=td.get("total_minutes", 0),
+        td_total_hours=td.get("total_hours", 0),
+        violations_total=rat.get("violations_total", 0),
+        duplication_pct=dup.get("duplication_pct", 0),
+    )
+
+    # Reconstruct module snapshots from ratings + module summaries
+    modules_dir = os.path.join(snap_dir, "modules")
+    rat_modules = {m["module"]: m for m in rat.get("modules", [])}
+    td_by_module = {m["module"]: m for m in td.get("by_module", [])}
+
+    if os.path.isdir(modules_dir):
+        for fname in sorted(os.listdir(modules_dir)):
+            if not fname.endswith("_summary.json"):
+                continue
+            mod_name = fname[:-len("_summary.json")]
+            ms = _load_json(os.path.join(modules_dir, fname))
+            if not ms:
+                continue
+
+            ri = rat_modules.get(mod_name, {})
+            ti = td_by_module.get(mod_name, {})
+            ms_summ = ms.get("metrics_summary", {})
+            cc = ms_summ.get("cyclo", {})
+            mi = ms_summ.get("mi", {})
+            fpy = ms_summ.get("fpy_function", {})
+
+            snap.modules.append(ModuleSnapshot(
+                name=mod_name,
+                files=ms.get("files_count", 0),
+                classes=ms.get("classes_count", 0),
+                functions=ms.get("functions_count", 0),
+                loc=ms.get("loc_total", 0),
+                sloc=ms.get("sloc_total", 0),
+                td_minutes=ti.get("total_hours", 0) * 60 if ti else 0,
+                cc_avg=cc.get("mean", 0) if isinstance(cc, dict) else 0,
+                mi_avg=mi.get("mean", 0) if isinstance(mi, dict) else 0,
+                fpy_avg=fpy.get("mean", 0) if isinstance(fpy, dict) else 0,
+                violations_total=ri.get("violations_total", 0),
+                grade=ri.get("grade", "—"),
+                score=ri.get("score", 0),
+            ))
+
+    return snap
 
 
 # ---------------------------------------------------------------------------

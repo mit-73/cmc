@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Metrics Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+</head>
+
+<body>
+
+  <div class="header">
+    <div class="header-left">
+      <h1>📊 Code Metrics Dashboard</h1>
+      <div class="meta" id="headerMeta"></div>
+    </div>
+    <div class="snapshot-bar">
+      <label>Snapshot</label>
+      <select class="snapshot-select" id="snapshotSelect" onchange="onSnapshotChange(this.value)"></select>
+      <button class="btn btn-compare" id="btnCompare" onclick="toggleCompare()">⚖️ Compare</button>
+    </div>
+  </div>
+
+  <div class="compare-bar" id="compareBar">
+    <label>Baseline (A)</label>
+    <select class="snapshot-select" id="compareA"></select>
+    <span style="color:var(--text-dim)">→</span>
+    <label>Current (B)</label>
+    <select class="snapshot-select" id="compareB"></select>
+    <button class="btn" onclick="runCompare()">Show Diff</button>
+    <span class="compare-hint">Select two snapshots to compare</span>
+  </div>
+
+  <div class="scope-bar" id="scopeBar">
+    <div class="info-btn" onclick="toggleMetricsRef()" title="Metrics Reference">ℹ️</div>
+    <div class="scope-pill active" data-scope="project" onclick="setScope('project')">🏠 Project</div>
+    <div class="scope-sep"></div>
+    <input type="text" class="scope-search" id="scopeSearch" placeholder="🔍 Filter modules..."
+      oninput="filterModules(this.value)">
+  </div>
+
+  <div class="tab-bar" id="tabBar">
+    <div class="tab-btn active" data-tab="overview" onclick="setTab('overview')">Overview</div>
+    <div class="tab-btn" data-tab="hotspots" onclick="setTab('hotspots')">Hotspots</div>
+    <div class="tab-btn" data-tab="techdebt" onclick="setTab('techdebt')">Tech Debt</div>
+    <div class="tab-btn" data-tab="distributions" onclick="setTab('distributions')">Distributions</div>
+    <div class="tab-btn" data-tab="dependencies" onclick="setTab('dependencies')">Dependencies</div>
+    <div class="tab-btn" data-tab="duplication" onclick="setTab('duplication')">Duplication</div>
+    <div class="tab-btn" data-tab="trends" onclick="setTab('trends')">Trends</div>
+  </div>
+
+  <!-- Metrics Reference Modal -->
+  <div class="modal-overlay" id="metricsRefOverlay" onclick="closeMetricsRef(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2>📖 Metrics Reference</h2>
+        <div class="modal-search-wrap">
+          <input type="text" class="modal-search" id="metricsRefSearch" placeholder="🔍 Search by name or abbreviation..." oninput="filterMetricsRef(this.value)">
+        </div>
+        <button class="modal-close" onclick="toggleMetricsRef()">&times;</button>
+      </div>
+      <div class="modal-body" id="metricsRefBody"></div>
+    </div>
+  </div>
+
+  <div class="content" id="content">
+    <div class="content loading">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+  <!-- JS modules (order matters: helpers → state → charts → views → ui → init) -->
+  <script src="js/helpers.js"></script>
+  <script src="js/metrics_ref.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/project.js"></script>
+  <script src="js/module.js"></script>
+  <script src="js/compare.js"></script>
+  <script src="js/ui.js"></script>
+  <script>init();</script>
+</body>
+
+</html>

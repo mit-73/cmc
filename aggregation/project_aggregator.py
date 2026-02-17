@@ -100,10 +100,12 @@ def aggregate_project(
 
     # Aggregate technical debt
     total_minutes = sum(ms.technical_debt.total_minutes for ms in module_summaries)
+    td_per_loc = (total_minutes / summary.loc_total * 1000) if summary.loc_total > 0 else 0.0
     summary.technical_debt = TechnicalDebtSummary(
         total_minutes=round(total_minutes, 2),
         total_hours=round(total_minutes / 60, 2),
         total_days=round(total_minutes / 480, 2),
+        td_per_loc=round(td_per_loc, 2),
     )
 
     # Add module summaries as dicts

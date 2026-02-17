@@ -77,8 +77,6 @@ def _discover_auto(config: MetricsConfig) -> List[Module]:
             continue
 
         rel = os.path.relpath(dirpath, root)
-        if rel == ".":
-            continue  # skip root workspace pubspec
 
         if _is_excluded_path(rel, config.discovery.exclude_patterns):
             continue

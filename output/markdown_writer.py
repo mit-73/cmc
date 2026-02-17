@@ -45,6 +45,7 @@ def write_module_summary_md(
     lines.append(f"| SLOC (total) | {ms.sloc_total:,} |")
     lines.append(f"| Tech debt (hours) | {ms.technical_debt.total_hours:.1f} |")
     lines.append(f"| Tech debt (days) | {ms.technical_debt.total_days:.1f} |")
+    lines.append(f"| TD/kLOC (min) | {ms.technical_debt.td_per_loc:.1f} |")
     lines.append("")
 
     # Metrics summary table
@@ -150,6 +151,7 @@ def write_project_summary_md(
     lines.append(f"| SLOC (total) | {ps.sloc_total:,} |")
     lines.append(f"| Tech debt (hours) | {ps.technical_debt.total_hours:.1f} |")
     lines.append(f"| Tech debt (days) | {ps.technical_debt.total_days:.1f} |")
+    lines.append(f"| TD/kLOC (min) | {ps.technical_debt.td_per_loc:.1f} |")
     lines.append("")
 
     # Metrics summary
@@ -187,8 +189,8 @@ def write_project_summary_md(
 
     # Module comparison table
     lines.append("## Module Comparison\n")
-    lines.append("| Module | Files | Classes | Functions | LOC | SLOC | CC (avg) | MI (avg) | TD (hours) |")
-    lines.append("|---|---|---|---|---|---|---|---|---|")
+    lines.append("| Module | Files | Classes | Functions | LOC | SLOC | CC (avg) | MI (avg) | TD (hours) | TD/kLOC |")
+    lines.append("|---|---|---|---|---|---|---|---|---|---|")
 
     # Sort modules by TD
     sorted_modules = sorted(module_summaries, key=lambda m: m.technical_debt.total_minutes, reverse=True)
@@ -201,7 +203,7 @@ def write_project_summary_md(
         lines.append(
             f"| `{ms.module}` | {ms.files_count} | {ms.classes_count} "
             f"| {ms.functions_count} | {ms.loc_total:,} | {ms.sloc_total:,} "
-            f"| {cc_str} | {mi_str} | {ms.technical_debt.total_hours:.1f} |"
+            f"| {cc_str} | {mi_str} | {ms.technical_debt.total_hours:.1f} | {ms.technical_debt.td_per_loc:.1f} |"
         )
     lines.append("")
 
@@ -339,23 +341,23 @@ def write_technical_debt_md(
     lines.append(f"- **Total:** {total_minutes:.0f} minutes = {total_minutes/60:.1f} hours = {total_minutes/480:.1f} work days\n")
 
     lines.append("## By Module\n")
-    lines.append("| Module | Minutes | Hours | Days | Share (%) |")
-    lines.append("|---|---|---|---|---|")
+    lines.append("| Module | Minutes | Hours | Days | TD/kLOC | Share (%) |")
+    lines.append("|---|---|---|---|---|---|")
     sorted_modules = sorted(module_summaries, key=lambda m: m.technical_debt.total_minutes, reverse=True)
     for ms in sorted_modules:
         td = ms.technical_debt
         pct = (td.total_minutes / total_minutes * 100) if total_minutes > 0 else 0
-        lines.append(f"| `{ms.module}` | {td.total_minutes:.0f} | {td.total_hours:.1f} | {td.total_days:.1f} | {pct:.1f}% |")
+        lines.append(f"| `{ms.module}` | {td.total_minutes:.0f} | {td.total_hours:.1f} | {td.total_days:.1f} | {td.td_per_loc:.1f} | {pct:.1f}% |")
     lines.append("")
 
     lines.append("## Top-30 Files\n")
     top_files = sorted(file_metrics, key=lambda f: f.technical_debt_minutes, reverse=True)[:30]
-    lines.append("| File | Module | TD (min) | LOC | CC max |")
-    lines.append("|---|---|---|---|---|")
+    lines.append("| File | Module | TD (min) | TD/kLOC | LOC | CC max |")
+    lines.append("|---|---|---|---|---|---|")
     for f in top_files:
         lines.append(
             f"| `{_short_path(f.path)}` | `{f.module}` "
-            f"| {f.technical_debt_minutes:.0f} | {f.loc} | {f.cyclo_max} |"
+            f"| {f.technical_debt_minutes:.0f} | {f.td_per_loc:.1f} | {f.loc} | {f.cyclo_max} |"
         )
     lines.append("")
 

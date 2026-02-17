@@ -219,7 +219,31 @@ cmc --no-graphs --no-pkg
 
 # Alternative: run as a Python module
 python -m cmc /path/to/your/dart-project
+
+# View interactive dashboard after running metrics
+cmc view /path/to/your/dart-project
 ```
+
+## Viewing Dashboard
+
+After running metrics collection, you can view an interactive HTML dashboard:
+
+```bash
+# Start local HTTP server for the dashboard
+cmc view /path/to/your/dart-project
+
+# Or from the project directory
+cd /path/to/your/dart-project
+cmc view
+
+# Custom port (default: 4000)
+cmc view --port 8080
+```
+
+The dashboard will be available at `http://localhost:4000/index.html` (or your custom port).
+The dashboard is served from the `cmc/server/` directory with metrics data loaded from the output directory.
+
+No installation required — just run `cmc view` and open the URL in any browser.
 
 ## CLI Flags
 
@@ -228,13 +252,17 @@ python -m cmc /path/to/your/dart-project
 | `PROJECT_ROOT` | cwd | Positional: path to the project root to analyze |
 | `--config PATH` | *(auto)* | Path to `metrics.yaml` (searches `./metrics.yaml` then `./analysis/metrics.yaml`) |
 | `--module NAME` | *(all)* | Analyze only the specified module |
+| `--metrics LIST` | *(all)* | Comma-separated metric names to compute (e.g., `cyclo,cbo,wmc`) |
 | `--format FORMAT` | *(all)* | Output format: `json`, `csv`, `markdown` |
-| `--dcm` | off | Enable DCM adapter for more accurate function-level metrics |
+| `--output DIR` | *(config)* | Override output directory for results |
+| `--dcm` / `--no-dcm` | off | Enable/disable DCM adapter for more accurate function-level metrics |
 | `--graphs` / `--no-graphs` | off | Enable/disable dependency graph generation |
 | `--pkg-analysis` / `--no-pkg` | off | Enable/disable package analysis |
 | `--include-dev` | off | Include dev dependencies in pubspec graph |
 | `--key-packages LIST` | *(config)* | Comma-separated list of packages for per-module import graphs |
 | `--git-since DATE` | `2025-01-01` | Start date for git hotspot analysis |
+| `--verbose` / `-v` | on | Verbose output (default) |
+| `--quiet` / `-q` | off | Suppress output |
 
 ## Configuration
 
@@ -243,7 +271,7 @@ Configuration is loaded from a YAML file. The tool searches in this order:
 2. `metrics.yaml` in the project root
 3. `analysis/metrics.yaml` in the project root
 
-Supported sections:
+Supported sections (show details in [metrics.yaml](metrics.yaml)):
 
 - **discovery** — module discovery strategy (`workspace`, `auto`, `manual`)
 - **exclude_patterns** — glob patterns for excluding directories
@@ -261,120 +289,6 @@ Supported sections:
 - **history** — snapshot-based trend tracking settings
 - **output** — output directory and formats
 
-### Code Smells Config
-
-```yaml
-code_smells:
-  magic_numbers_warning: 5       # file-level magic number count threshold
-  hardcoded_strings_warning: 10  # file-level hardcoded string count threshold
-  static_members_warning: 8     # file-level static member count threshold
-  dead_code_warning: 3           # file-level dead code estimate threshold
-```
-
-### Graphs Config
-
-```yaml
-graphs:
-  enabled: false                  # enable dependency graph generation
-  include_dev: false              # include dev_dependencies in pubspec graph
-  include_overrides: false        # include dependency_overrides in pubspec graph
-  include_tests: false            # include test files in import graph
-  key_packages:                   # packages for per-module import detail graphs
-    - core
-    - sdk
-```
-
-### WMFP Config
-
-```yaml
-wmfp:
-  # Component weights (must sum to 1.0)
-  weights:
-    flow_complexity: 0.30       # cyclomatic complexity contribution
-    object_vocabulary: 0.20     # Halstead vocabulary (unique operators + operands)
-    object_conjuration: 0.10    # Halstead program length
-    arithmetic_intricacy: 0.05  # arithmetic operator count
-    data_transfer: 0.10         # number of parameters
-    code_structure: 0.15        # nesting + LOC/SLOC
-    inline_data: 0.05           # inline data (assignments)
-    comments: 0.05              # comment line density
-  # Thresholds
-  warning: 15.0                 # function WMFP > 15 — warning
-  critical: 30.0                # function WMFP > 30 — critical
-  density_warning: 0.5          # file WMFP/SLOC > 0.5 — warning
-  density_critical: 1.0         # file WMFP/SLOC > 1.0 — critical
-```
-
-### FPY Config
-
-```yaml
-fpy:
-  # Function-level quality gates
-  function_gates:
-    max_cyclo: 10               # CC ≤ 10
-    max_nesting: 4              # MNL ≤ 4
-    min_mi: 50.0                # MI ≥ 50
-    max_params: 4               # NOP ≤ 4
-    max_loc: 50                 # LOC ≤ 50
-  # Class-level quality gates
-  class_gates:
-    max_wmc: 20                 # WMC ≤ 20
-    max_cbo: 8                  # CBO ≤ 8
-    min_tcc: 0.33               # TCC ≥ 0.33
-    max_nom: 20                 # NOM ≤ 20
-    min_woc: 0.33               # WOC ≥ 0.33
-  # File-level smell gates
-  file_gates:
-    max_imports: 15             # NOI ≤ 15
-    max_magic_numbers: 3        # magic numbers ≤ 3
-    max_hardcoded_strings: 5    # hardcoded strings ≤ 5
-    max_dead_code: 0            # dead code estimate = 0
-  # File-level FPY aggregation weights
-  weight_functions: 0.5         # 50% from function FPY
-  weight_classes: 0.3           # 30% from class FPY
-  weight_smells: 0.2            # 20% from file smell gates
-```
-
-### Package Analysis Config
-
-```yaml
-package_analysis:
-  enabled: false                  # enable package analysis
-  git_since: "2025-01-01"        # start date for git hotspot analysis
-  git_hotspots_top_n: 20         # number of top hotspot files to report
-  shotgun_surgery_top_n: 10      # number of top widely-imported files to report
-```
-
-### Rating Config
-
-```yaml
-rating:
-  weights:
-    mi: 0.30                       # Maintainability Index contribution
-    cc: 0.25                       # Cyclomatic Complexity contribution
-    fpy: 0.25                      # First-Pass Yield contribution
-    td: 0.20                       # Technical Debt density contribution
-  normalization:
-    cc_max: 30.0                   # CC at or above this maps to score 0
-    td_max: 100.0                  # TD (min/kLOC) at or above this maps to score 0
-  # Grades: A ≥ 80, B ≥ 60, C ≥ 40, D ≥ 20, E < 20
-```
-
-### Duplication Config
-
-```yaml
-duplication:
-  min_tokens: 50                   # minimum token window for a duplicate block
-  min_lines: 6                     # minimum source lines for a duplicate block
-  max_pairs: 500                   # maximum duplicate pairs to report
-```
-
-### History Config
-
-```yaml
-history:
-  max_snapshots: 20                # maximum historical snapshots to load for trends
-```
 
 ## Module Quality Rating (A/B/C/D/E)
 
@@ -454,8 +368,10 @@ Output: `history/snapshot_*.json`, `delta.json`, `delta.md`
 
 ## HTML Dashboard
 
-A self-contained interactive HTML dashboard with embedded Chart.js.
-Always generated as `dashboard.html`. Contains 7 tabs:
+An interactive HTML dashboard served via local HTTP server.
+Run `cmc view` to start the server and view metrics in your browser.
+
+The dashboard contains 7 tabs:
 
 | Tab | Contents |
 |---|---|
@@ -467,7 +383,8 @@ Always generated as `dashboard.html`. Contains 7 tabs:
 | **Duplication** | Duplication KPIs and top duplicate pairs table |
 | **Trends & Delta** | Delta table vs previous run, historical line charts |
 
-Open in any browser — no server required, all data is embedded as JSON.
+The dashboard uses Chart.js for interactive visualizations and loads metrics data
+from JSON files in the output directory.
 
 ## Dependency Graphs
 
@@ -538,9 +455,12 @@ analysis/metrics_output/
 ├── dsm.json/.md                        # Design Structure Matrix
 ├── duplication.json/.md                # Code duplication report
 ├── delta.json/.md                      # Diff vs previous snapshot
-├── dashboard.html                      # Interactive HTML dashboard
+├── index.json                          # Dashboard data index
 └── metadata.json                       # Run metadata
 ```
+
+View the dashboard by running `cmc view` — it serves the interactive HTML interface
+from `cmc/server/` and loads metrics data from the output directory.
 
 ## Violations
 
@@ -582,7 +502,7 @@ cmc --dcm
 ## Architecture
 
 ```
-metrics/
+cmc/
 ├── __main__.py                  # CLI entry point
 ├── config.py                    # Configuration loading
 ├── discovery.py                 # Module discovery
@@ -618,10 +538,13 @@ metrics/
 │   ├── stats.py                 # Statistics (mean, median, p90, std_dev)
 │   ├── module_aggregator.py     # Per-module aggregation
 │   └── project_aggregator.py    # Project-wide aggregation
-└── output/
-    ├── json_writer.py           # JSON output
-    ├── csv_writer.py            # CSV output
-    ├── markdown_writer.py       # Markdown reports
-    ├── dot_writer.py            # Graphviz DOT output
-    └── html_writer.py           # Interactive HTML dashboard
+├── output/
+│   ├── json_writer.py           # JSON output
+│   ├── csv_writer.py            # CSV output
+│   ├── markdown_writer.py       # Markdown reports
+│   └── dot_writer.py            # Graphviz DOT output
+└── server/                      # Dashboard web server
+    ├── index.html               # Dashboard HTML
+    ├── styles.css               # Dashboard styles
+    └── js/                      # Dashboard JavaScript modules
 ```
