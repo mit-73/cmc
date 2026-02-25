@@ -259,7 +259,7 @@ class DCMConfig:
 
 @dataclass
 class OutputConfig:
-    directory: str = "analysis/metrics_output"
+    directory: str = "analysis/metrics"
     formats: list = field(default_factory=lambda: ["json", "csv", "markdown"])
 
 

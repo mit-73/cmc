@@ -233,7 +233,7 @@ duplication:
 
 # Output configuration
 output:
-  directory: "analysis/metrics_output"
+  directory: "analysis/metrics"
   formats:
     - json       # machine-readable data
     - csv        # for Excel / Google Sheets

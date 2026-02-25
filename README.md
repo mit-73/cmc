@@ -221,7 +221,7 @@ cmc --no-graphs --no-pkg
 python -m cmc /path/to/your/dart-project
 
 # View interactive dashboard after running metrics
-cmc view /path/to/your/dart-project
+cmc view /path/to/your/metrics/output
 ```
 
 ## Viewing Dashboard
@@ -230,10 +230,10 @@ After running metrics collection, you can view an interactive HTML dashboard:
 
 ```bash
 # Start local HTTP server for the dashboard
-cmc view /path/to/your/dart-project
+cmc view /path/to/your/metrics/output
 
-# Or from the project directory
-cd /path/to/your/dart-project
+# Or from the metrics output directory
+cd /path/to/your/metrics/output
 cmc view
 
 # Custom port (default: 4000)
@@ -241,7 +241,7 @@ cmc view --port 8080
 ```
 
 The dashboard will be available at `http://localhost:4000/index.html` (or your custom port).
-The dashboard is served from the `cmc/server/` directory with metrics data loaded from the output directory.
+The dashboard is served from the `cmc/server/` directory with metrics data loaded from the metrics output directory.
 
 No installation required — just run `cmc view` and open the URL in any browser.
 
@@ -428,7 +428,7 @@ When enabled (`--pkg-analysis`), the tool performs cross-package structural anal
 ## Output Files
 
 ```
-analysis/metrics_output/
+analysis/metrics/
 ├── raw/                                # Raw metrics
 │   ├── file_metrics.json/.csv          # includes static_members, hardcoded_strings,
 │   │                                   #   magic_numbers, dead_code_estimate

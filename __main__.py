@@ -2,7 +2,7 @@
 
 Usage:
     cmc [options] [PROJECT_ROOT]      Analyze project
-    cmc view [PROJECT_ROOT] [--port]  View dashboard
+    cmc view [METRICS_OUTPUT] [--port]  View dashboard
 
 Options:
     PROJECT_ROOT        Path to the project root to analyze (default: cwd)
@@ -41,19 +41,12 @@ def _run_view(args):
     import http.server
     import functools
 
-    project_root = os.path.abspath(args.project_root) if args.project_root else os.getcwd()
+    metrics_output = os.path.abspath(args.metrics_output) if args.metrics_output else os.getcwd()
     port = args.port
 
-    # Determine output dir
-    from .config import load_config
-    config = load_config(config_path=None, repo_root=project_root)
-    output_dir = config.output.directory
-    if not os.path.isabs(output_dir):
-        output_dir = os.path.join(project_root, output_dir)
-
-    index_path = os.path.join(output_dir, "index.json")
+    index_path = os.path.join(metrics_output, "index.json")
     if not os.path.isfile(index_path):
-        print(f"Error: No metrics data found in {output_dir}", file=sys.stderr)
+        print(f"Error: No metrics data found in {metrics_output}", file=sys.stderr)
         print("  Run 'cmc' first to generate metrics.", file=sys.stderr)
         return 1
 
@@ -65,14 +58,14 @@ def _run_view(args):
         print("  CMC installation may be corrupted.", file=sys.stderr)
         return 1
 
-    print(f"Serving metrics from: {output_dir}")
+    print(f"Serving metrics from: {metrics_output}")
     print(f"Open: http://localhost:{port}/index.html")
     print("Press Ctrl+C to stop.\n")
 
-    # Custom handler: index.html from cmc/server/, data from output_dir
+    # Custom handler: index.html from cmc/server/, data from metrics_output
     class MetricsHandler(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *args, **kwargs):
-            super().__init__(*args, directory=output_dir, **kwargs)
+            super().__init__(*args, directory=metrics_output, **kwargs)
 
         def _serve_static(self, rel_path, content_type):
             """Serve a file from cmc/server/ directory."""
@@ -99,7 +92,7 @@ def _run_view(args):
             elif self.path.startswith("/js/") and self.path.endswith(".js"):
                 self._serve_static(self.path.lstrip("/"), "application/javascript; charset=utf-8")
             else:
-                # Serve data files from output_dir
+                # Serve data files from metrics_output
                 super().do_GET()
 
     server = http.server.HTTPServer(("localhost", port), MetricsHandler)
@@ -118,10 +111,10 @@ def main():
             description="View the metrics dashboard via local HTTP server",
         )
         view_parser.add_argument(
-            "project_root",
+            "metrics_output",
             nargs="?",
             default=None,
-            help="Path to the project root (default: current directory)",
+            help="Path to the metrics output directory (default: current directory)",
         )
         view_parser.add_argument(
             "--port", "-p",
